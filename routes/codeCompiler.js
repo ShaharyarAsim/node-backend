@@ -68,6 +68,8 @@ router.post("/compile/:id", async (req, res) => {
   try {
     compResult = await executeWithArgs(codeStorage, args); // Output of execution is recorded in string
 
+    console.log("Compiling");
+
     // AI response generation begins
     if (useAI == true) {
       // Bool value is provided by POST request -- default is false, though in the final execution it is made true
@@ -107,6 +109,8 @@ router.post("/compile/:id", async (req, res) => {
         prompt: prompt,
         max_tokens: 1000,
       });
+
+      console.log("Compiling");
 
       let completion = ""; // Initialize with an empty string
 
