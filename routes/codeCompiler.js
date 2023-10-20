@@ -12,7 +12,7 @@ const { Configuration, OpenAIApi } = require("openai");
 
 // OpenAI key -- Allows us to use the AI Assistant hosted by ChatGPT
 const configuration = new Configuration({
-  apiKey: "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",
+  apiKey: process.env.OPEN_AI_API_KEY,
 });
 const openai = new OpenAIApi(configuration);
 
