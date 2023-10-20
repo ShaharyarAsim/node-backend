@@ -42,7 +42,7 @@ router.post(
     User.findById(req.params.id).then((user) => {
       if (user.imagePath) {
         const oldImagePath =
-          "images/" + user.imagePath.split("/").pop();
+          "backend/images/" + user.imagePath.split("/").pop();
         console.log("Old image found: ", oldImagePath);
         fs.unlink(oldImagePath, (error) => {
           if (error) {
@@ -87,7 +87,7 @@ router.post("/register", bodyParser.json(), async (req, res, next) => {
     let hash = await bcrypt.hash(req.body.password, 10);
 
     console.log(hash);
-    const new_user = new User({
+    let new_user = new User({
       email: req.body.email,
       password: hash,
       name: req.body.name,
@@ -106,10 +106,11 @@ router.post("/register", bodyParser.json(), async (req, res, next) => {
     console.log(new_user);
     return res.status(200).json({
       message: "User Created",
-      result: result,
     });
+
     console.log("\n------- User Created ------\n");
   } catch (err) {
+    console.log(err);
     return res.status(406).json({ message: err });
   }
 
