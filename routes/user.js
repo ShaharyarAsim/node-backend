@@ -2,70 +2,88 @@ const express = require("express");
 const bcrypt = require("bcryptjs"); // To encrypt password
 const jwt = require("jsonwebtoken"); // To generate token
 const bodyParser = require("body-parser"); // To parse JSON Object
-const multer = require("multer"); //To handle image upload
 const fs = require("fs");
-
+const cloudinary = require("cloudinary");
+const multer = require("../middleware/multer");
 const User = require("../models/user");
 const checkAuth = require("../middleware/check-auth");
 
 const router = express.Router();
 
-const MIME_TYPE_MAP = {
-  "image/png": "png",
-  "image/jpg": "jpg",
-  "image/jpeg": "jpg",
-};
+//Uploading image
 
-const storage = multer.diskStorage({
-  destination: (req, file, callback) => {
-    const isValid = MIME_TYPE_MAP[file.mimetype];
-    let error = new Error("Invalid mime type");
-    if (isValid) {
-      error = null;
-    }
-    callback(error, "images");
-  },
-  filename: (req, file, callback) => {
-    const name = file.originalname.toLowerCase().split(" ").join("-");
-    const ext = MIME_TYPE_MAP[file.mimetype];
-    callback(null, name + "-" + Date.now() + "." + ext);
-  },
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-//Uploading image
+// This route is used to upload picture to cloudinary
 
 router.post(
   "/upload-profile-picture/:id",
-  multer({ storage: storage }).single("image"),
-  (req, res, next) => {
+  multer.single("image"),
+  async (req, res, next) => {
     console.log(`Uploading image for userID: ${req.params.id}`);
-    User.findById(req.params.id).then((user) => {
-      if (user.imagePath) {
-        const oldImagePath =
-          "backend/images/" + user.imagePath.split("/").pop();
-        console.log("Old image found: ", oldImagePath);
-        fs.unlink(oldImagePath, (error) => {
-          if (error) {
-            console.log(
-              "Error while deleting file: ",
-              user.imagePath,
-              "\nImage could not be uploaded!"
-            );
-            console.log(error);
-            return;
-          }
-
-          console.log("File deleted successfully: ", oldImagePath);
-        });
+    try {
+      let user = await User.findById(req.params.id);
+      if (!user) {
+        throw "User not found.";
       }
-
-      const url = req.protocol + "://" + req.get("host");
-      user.imagePath = url + "/images/" + req.file.filename; //
-      console.log("New ImagePath: ", user.imagePath);
-      user.save();
-    });
+      if (user.imagePath) {
+        const image = await cloudinary.uploader.destroy(
+          user.imagePath.split("/").pop().split(".")[0]
+        );
+        if (image.result !== "ok") {
+          throw "Couldn't delete the picture!";
+        }
+      }
+      const result = await cloudinary.uploader.upload(req.file.path);
+      user.imagePath = result.url;
+      user = await user.save();
+      return res.status(200).json({
+        message: "Picture uploaded successfully!",
+      });
+    } catch (err) {
+      console.log(err);
+    }
   }
 );
+
+// This route is used to upload picture to the backend-server
+
+// router.post(
+//   "/upload-profile-picture/:id",
+//   multer({ storage: storage }).single("image"),
+//   (req, res, next) => {
+//     console.log(`Uploading image for userID: ${req.params.id}`);
+//     User.findById(req.params.id).then((user) => {
+//       if (user.imagePath) {
+//         const oldImagePath =
+//           "backend/images/" + user.imagePath.split("/").pop();
+//         console.log("Old image found: ", oldImagePath);
+//         fs.unlink(oldImagePath, (error) => {
+//           if (error) {
+//             console.log(
+//               "Error while deleting file: ",
+//               user.imagePath,
+//               "\nImage could not be uploaded!"
+//             );
+//             console.log(error);
+//             return;
+//           }
+
+//           console.log("File deleted successfully: ", oldImagePath);
+//         });
+//       }
+
+//       const url = req.protocol + "://" + req.get("host");
+//       user.imagePath = url + "/images/" + req.file.filename; //
+//       console.log("New ImagePath: ", user.imagePath);
+//       user.save();
+//     });
+//   }
+// );
 
 //User Registeration
 
@@ -104,6 +122,7 @@ router.post("/register", bodyParser.json(), async (req, res, next) => {
     console.log("\n------- CREATING USER ------\n");
     new_user = await new_user.save();
     console.log(new_user);
+    console.log("\n------- USER CREATED ------\n");
     return res.status(200).json({
       message: "User Created",
     });
