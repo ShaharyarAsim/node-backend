@@ -69,10 +69,25 @@ router.post(
 
 //User Registeration
 
-router.post("/register", bodyParser.json(), (req, res, next) => {
-  bcrypt.hash(req.body.password, 10).then((hash) => {
+router.post("/register", bodyParser.json(), async (req, res, next) => {
+  try {
+    let user = await User.findOne({ email: req.body.email });
+    if (user) {
+      throw "Email already in use. Please try another one.";
+    }
+    user = await User.findOne({ username: req.body.username });
+    if (user) {
+      throw "Username already in use. Please try another one.";
+    }
+
+    if (req.body.username.includes(" ")) {
+      throw "Username cannot contain space(s). Please try again";
+    }
+
+    let hash = await bcrypt.hash(req.body.password, 10);
+
     console.log(hash);
-    const user = new User({
+    const new_user = new User({
       email: req.body.email,
       password: hash,
       name: req.body.name,
@@ -86,24 +101,63 @@ router.post("/register", bodyParser.json(), (req, res, next) => {
       },
     });
 
-    console.log("\n------- SAVING USER ------\n");
-    console.log(user.username);
-    console.log("\n------- SAVING USER ------\n");
+    console.log("\n------- CREATING USER ------\n");
+    new_user.save();
+    console.log(new_user);
+    return res.status(200).json({
+      message: "User Created",
+      result: result,
+    });
+    console.log("\n------- User Created ------\n");
+  } catch (err) {
+    return res.status(406).json({ message: err });
+  }
 
-    user
-      .save()
-      .then((result) => {
-        res.status(200).json({
-          message: "User Created",
-          result: result,
-        });
-      })
-      .catch((err) => {
-        res.status(500).json({
-          error: err,
-        });
-      });
-  });
+  // User.findOne({ email: req.body.email })
+  //   .then((user) => {
+  //     if (user) {
+  //       throw "Email already in use. Please try another one.";
+  //     }
+  //   })
+  //   .then(() => {
+  //     bcrypt.hash(req.body.password, 10).then((hash) => {
+  //       console.log(hash);
+  //       const user = new User({
+  //         email: req.body.email,
+  //         password: hash,
+  //         name: req.body.name,
+  //         username: req.body.username,
+  //         dob: req.body.dob,
+  //         imagePath: "",
+  //         loginStreak: {
+  //           onDate: null,
+  //           nextDate: null,
+  //           streakCount: 0,
+  //         },
+  //       });
+
+  //       console.log("\n------- SAVING USER ------\n");
+  //       console.log(user.username);
+  //       console.log("\n------- SAVING USER ------\n");
+
+  //       user
+  //         .save()
+  //         .then((result) => {
+  //           return res.status(200).json({
+  //             message: "User Created",
+  //             result: result,
+  //           });
+  //         })
+  //         .catch((err) => {
+  //           res.status(500).json({
+  //             error: err,
+  //           });
+  //         });
+  //     });
+  //   })
+  //   .catch((err) => {
+  //     return res.status(406).json({ message: err });
+  //   });
 });
 
 //User Login and Token Generation
@@ -113,10 +167,6 @@ router.post("/login", bodyParser.json(), (req, res, next) => {
   User.findOne({ email: req.body.email })
     .then((user) => {
       if (!user) {
-        // return res.status(401).json({
-        //   message: "Authentication failed; No matching user found",
-        // });
-
         throw "Entered email does not exist";
       }
       fetchedUser = user;
@@ -171,29 +221,46 @@ router.get(
   checkAuth,
   bodyParser.json(),
   (req, res, next) => {
-    User.findById(req.params.id).then((fetchedUser) => {
-      if (!fetchedUser) {
+    User.findById(req.params.id)
+      .then((fetchedUser) => {
+        if (!fetchedUser) {
+          throw "Unable to find the user.";
+        }
+
+        let learningProgress = 0;
+
+        if (fetchedUser.qAnswers) {
+          fetchedUser.qAnswers.forEach((ans) => {
+            if (ans.exercise === "python-topic") {
+              learningProgress = learningProgress + 7;
+            } else {
+              learningProgress = learningProgress + 10;
+            }
+          });
+        }
+
+        let user = {
+          email: fetchedUser.email,
+          joined: fetchedUser.joinedOn,
+          name: fetchedUser.name,
+          username: fetchedUser.username,
+          dob: fetchedUser.dob,
+          loginStreakCount: fetchedUser.loginStreak.streakCount,
+          imagePath: fetchedUser.imagePath,
+          bioData: fetchedUser.bioData,
+          favorites: fetchedUser.favorites,
+          recentActivities: fetchedUser.recentActivities,
+          learningProgress: learningProgress,
+        };
+
+        console.log(`Profile data fetched for userID: ${req.params.id}`);
+        return res.status(200).send(user);
+      })
+      .catch((err) => {
         return res.status(404).json({
-          message: `Could not fetch user with ID: ${req.params.id}`,
+          message: err,
         });
-      }
-
-      let user = {
-        email: fetchedUser.email,
-        joined: fetchedUser.joinedOn,
-        name: fetchedUser.name,
-        username: fetchedUser.username,
-        dob: fetchedUser.dob,
-        loginStreakCount: fetchedUser.loginStreak.streakCount,
-        imagePath: fetchedUser.imagePath,
-        bioData: fetchedUser.bioData,
-        favorites: fetchedUser.favorites,
-        recentActivities: fetchedUser.recentActivities,
-      };
-
-      console.log(`Profile data fetched for userID: ${req.params.id}`);
-      return res.status(200).send(user);
-    });
+      });
   }
 );
 
