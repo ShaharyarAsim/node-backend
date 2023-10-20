@@ -42,7 +42,7 @@ router.post(
     User.findById(req.params.id).then((user) => {
       if (user.imagePath) {
         const oldImagePath =
-          "backend/images/" + user.imagePath.split("/").pop();
+          "images/" + user.imagePath.split("/").pop();
         console.log("Old image found: ", oldImagePath);
         fs.unlink(oldImagePath, (error) => {
           if (error) {
@@ -102,7 +102,7 @@ router.post("/register", bodyParser.json(), async (req, res, next) => {
     });
 
     console.log("\n------- CREATING USER ------\n");
-    new_user.save();
+    new_user = await new_user.save();
     console.log(new_user);
     return res.status(200).json({
       message: "User Created",
