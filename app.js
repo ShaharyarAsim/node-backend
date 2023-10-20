@@ -28,6 +28,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cors());
 app.use("/images", express.static(path.join("backend/images")));
+app.use("/", express.static(path.join(__dirname, "frontend")));
 
 app.use(function (req, res, next) {
   res.setHeader("Access-Control-Allow-Origin", "http://localhost:4200");
@@ -45,5 +46,8 @@ app.use(function (req, res, next) {
 
 app.use("/api/code", codeCompilerRoutes);
 app.use("/api/user", userRoutes);
+app.use((req, res, next) => {
+  res.sendFile(path.join(__dirname, "frontend", "index.html"));
+});
 
 module.exports = app;
